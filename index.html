@@ -1,260 +1,891 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Background Remover & Generator</title>
-  <style>
-    :root { --primary: #4f46e5; --success: #16a34a; --warning: #f59e0b; --error: #dc2626; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
-    .container { max-width: 960px; margin: 0 auto; background: var(--card); padding: 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
-    h1 { text-align: center; margin-bottom: 8px; font-size: 1.8rem; }
-    .subtitle { text-align: center; color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; }
-    
-    .upload-area { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; margin-bottom: 20px; }
-    .upload-area:hover, .upload-area.dragover { border-color: var(--primary); background: #eef2ff; }
-    .upload-area p { margin-bottom: 8px; color: var(--muted); }
-    
-    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
-    input[type="text"] { flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; min-width: 200px; }
-    button { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px; transition: all 0.2s; white-space: nowrap; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: var(--primary); color: white; }
-    .btn-warning { background: var(--warning); color: #000; }
-    .btn-success { background: var(--success); color: white; }
-    
-    #statusBar { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; display: none; font-size: 14px; }
-    #statusBar.visible { display: block; }
-    .loading { background: #fef3c7; color: #92400e; }
-    .success { background: #dcfce7; color: #166534; }
-    .error { background: #fee2e2; color: #991b1b; }
-    
-    .preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
-    .preview-box { background: #f1f5f9; border-radius: 10px; padding: 10px; text-align: center; }
-    .preview-box h3 { font-size: 14px; margin-bottom: 8px; color: var(--muted); }
-    .preview-box img { max-width: 100%; height: auto; border-radius: 6px; display: block; margin: 0 auto; background: repeating-conic-gradient(#e2e8f0 0% 25%, transparent 0% 50%) 50% / 16px 16px; }
-    
-    .canvas-wrap { text-align: center; margin-top: 10px; }
-    .canvas-wrap h3 { margin-bottom: 8px; font-size: 14px; color: var(--muted); }
-    canvas { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: repeating-conic-gradient(#e2e8f0 0% 25%, transparent 0% 50%) 50% / 16px 16px; }
-    
-    #modelStatus { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
-    .progress-bar { height: 4px; background: #e2e8f0; border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
-    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
-    
-    @media (max-width: 600px) {
-      .controls { flex-direction: column; }
-      input[type="text"] { width: 100%; }
-      button { width: 100%; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Background Remover Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #f5f4f0;
+    color: #1a1a1a;
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: #1a1a1a;
+    line-height: 1.1;
+  }
+
+  .header h1 span { color: #7F77DD; }
+
+  .header p {
+    margin-top: 0.5rem;
+    font-size: 14px;
+    color: #666;
+    font-weight: 300;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #EEEDFE;
+    color: #3C3489;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 1rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #7F77DD; }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  @media (max-width: 600px) { .workspace { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 0.5px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .panel-body {
+    padding: 1rem;
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .drop-zone {
+    width: 100%;
+    height: 240px;
+    border: 1.5px dashed #bbb;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    gap: 10px;
+    color: #999;
+    font-size: 13px;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: #7F77DD;
+    background: #EEEDFE22;
+    color: #534AB7;
+  }
+
+  .drop-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .drop-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #f5f4f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .preview-img {
+    width: 100%;
+    height: 240px;
+    object-fit: contain;
+    border-radius: 10px;
+    display: block;
+  }
+
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 0 0 / 16px 16px;
+  }
+
+  .canvas-wrap canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  .status-bar {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem; right: 1rem;
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    text-align: center;
+    display: none;
+  }
+
+  .controls {
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 14px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  @media (max-width: 520px) { .controls-grid { grid-template-columns: 1fr; } }
+
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 6px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .field select, .field input[type=text] {
+    width: 100%;
+    padding: 9px 12px;
+    border: 0.5px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fafafa;
+    color: #1a1a1a;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+    -webkit-appearance: none;
+  }
+
+  .field select:focus, .field input[type=text]:focus { border-color: #7F77DD; }
+
+  .bg-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+
+  .preset-btn {
+    padding: 5px 10px;
+    border-radius: 20px;
+    border: 0.5px solid #ccc;
+    background: #fafafa;
+    color: #666;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .preset-btn:hover, .preset-btn.active {
+    background: #EEEDFE;
+    color: #534AB7;
+    border-color: #7F77DD;
+  }
+
+  .action-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 1.25rem;
+  }
+
+  .btn-primary {
+    flex: 1;
+    padding: 11px 20px;
+    background: #534AB7;
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 180px;
+  }
+
+  .btn-primary:hover:not(:disabled) { background: #3C3489; }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .btn-secondary {
+    padding: 11px 16px;
+    background: transparent;
+    color: #666;
+    border: 0.5px solid #ccc;
+    border-radius: 9px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-secondary:hover:not(:disabled) { background: #f5f4f0; border-color: #aaa; }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .progress-wrap {
+    display: none;
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 14px;
+    padding: 1.25rem;
+  }
+
+  .progress-label {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .progress-bar-bg {
+    height: 4px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7F77DD, #534AB7);
+    border-radius: 4px;
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .log-box {
+    margin-top: 0.75rem;
+    font-size: 12px;
+    color: #999;
+    min-height: 18px;
+    font-style: italic;
+  }
+
+  .bg-prompt-row { display: none; margin-top: 0.75rem; }
+  .bg-prompt-row.visible { display: block; }
+
+  .color-picker-row { display: none; margin-top: 0.75rem; align-items: center; gap: 10px; }
+  .color-picker-row.visible { display: flex; }
+
+  .placeholder-out {
+    text-align: center;
+    color: #aaa;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .placeholder-icon {
+    width: 48px; height: 48px;
+    border: 1.5px dashed #ccc;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>🖼️ AI Background Remover & Generator</h1>
-    <p class="subtitle">Upload → Remove BG → Generate AI Background → Download</p>
-    <div id="modelStatus">⏳ Initializing AI Model...</div>
-    
-    <div class="upload-area" id="uploadArea">
-      <p>📤 Drag & drop an image here or click to upload</p>
-      <input type="file" id="fileInput" accept="image/*" style="display:none">
+<div class="app">
+
+  <div class="header">
+    <div class="badge"><div class="dot"></div>AI-Powered</div>
+    <h1>Background <span>Remover</span> Pro</h1>
+    <p>Upload any photo — AI removes the background &amp; replaces it automatically</p>
+  </div>
+
+  <div class="workspace">
+    <!-- Original Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Original</span>
+        <span id="img-info" style="font-size:11px;color:#999;">No image</span>
+      </div>
+      <div class="panel-body">
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="file-input" accept="image/*">
+          <div class="drop-icon">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#7F77DD" stroke-width="2">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+            </svg>
+          </div>
+          <span>Drop photo or click to upload</span>
+          <span style="font-size:11px;opacity:0.6;">JPG, PNG, WEBP</span>
+        </div>
+        <img id="preview" class="preview-img" style="display:none;" alt="Preview">
+      </div>
     </div>
-    
-    <div id="statusBar"></div>
-    <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
-    
-    <div class="controls">
-      <input type="text" id="bgPrompt" placeholder="AI background prompt (e.g., 'cyberpunk city, neon lights, bokeh')" value="professional photo studio background, soft lighting">
-      <button id="removeBgBtn" class="btn-primary" disabled>🔍 Remove Background</button>
-      <button id="generateBgBtn" class="btn-warning" disabled>✨ Generate AI Background</button>
-      <button id="downloadBtn" class="btn-success" disabled>⬇️ Download PNG</button>
-    </div>
-    
-    <div class="preview-grid">
-      <div class="preview-box"><h3>Original</h3><img id="originalImg" alt="Original"></div>
-      <div class="preview-box"><h3>Foreground</h3><img id="foregroundImg" alt="Foreground"></div>
-      <div class="preview-box"><h3>AI Background</h3><img id="backgroundImg" alt="Background"></div>
-    </div>
-    
-    <div class="canvas-wrap">
-      <h3>Final Composite</h3>
-      <canvas id="resultCanvas"></canvas>
+
+    <!-- Result Panel -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Result</span>
+        <span id="result-badge" style="font-size:11px;color:#999;">Awaiting processing</span>
+      </div>
+      <div class="panel-body">
+        <div id="canvas-wrap" class="canvas-wrap" style="display:none;">
+          <canvas id="result-canvas"></canvas>
+        </div>
+        <div id="placeholder-out" class="placeholder-out">
+          <div class="placeholder-icon">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#bbb" stroke-width="1.5">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/>
+            </svg>
+          </div>
+          Result will appear here
+        </div>
+        <div class="status-bar" id="status-bar">Processing...</div>
+      </div>
     </div>
   </div>
 
-  <!-- Load AI Library via ES Module -->
-  <script type="module">
+  <!-- Controls -->
+  <div class="controls">
+    <div class="controls-grid">
+      <div>
+        <div class="field">
+          <label>Background type</label>
+          <select id="bg-type" onchange="onBgTypeChange()">
+            <option value="transparent">Transparent (PNG)</option>
+            <option value="ai">AI Generated Background</option>
+            <option value="solid">Solid Color</option>
+            <option value="gradient">Gradient</option>
+          </select>
+        </div>
+        <div class="bg-presets" id="presets">
+          <button class="preset-btn active" onclick="setPreset(this,'studio photo, soft gradient backdrop, professional')">Studio</button>
+          <button class="preset-btn" onclick="setPreset(this,'sunset beach, golden hour, bokeh')">Sunset</button>
+          <button class="preset-btn" onclick="setPreset(this,'modern office interior, blurred background')">Office</button>
+          <button class="preset-btn" onclick="setPreset(this,'lush forest, green nature, depth of field')">Nature</button>
+          <button class="preset-btn" onclick="setPreset(this,'futuristic city neon lights, cyberpunk')">Cyber</button>
+          <button class="preset-btn" onclick="setPreset(this,'minimalist white marble texture')">Marble</button>
+        </div>
+      </div>
+      <div>
+        <div class="bg-prompt-row visible" id="ai-prompt-row">
+          <div class="field">
+            <label>Custom AI background prompt</label>
+            <input type="text" id="bg-prompt" value="studio photo, soft gradient backdrop, professional" placeholder="Describe background...">
+          </div>
+        </div>
+        <div class="color-picker-row" id="color-row">
+          <label style="font-size:12px;color:#888;white-space:nowrap;">Color:</label>
+          <input type="color" id="solid-color" value="#ffffff" style="width:40px;height:34px;border-radius:6px;border:0.5px solid #ccc;cursor:pointer;padding:2px;">
+          <span style="font-size:12px;color:#888;" id="color-val">#ffffff</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-primary" id="process-btn" onclick="processImage()" disabled>
+        <svg id="btn-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <div class="spinner" id="spinner"></div>
+        <span id="btn-label">Remove Background</span>
+      </button>
+      <button class="btn-secondary" id="download-btn" onclick="downloadResult()" disabled>
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Download
+      </button>
+      <button class="btn-secondary" onclick="resetAll()">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 109-9M3 3v6h6"/>
+        </svg>
+        Reset
+      </button>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progress-wrap">
+    <div class="progress-label">
+      <span>Processing</span>
+      <span id="pct">0%</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="log-box" id="log-box">Initializing AI pipeline...</div>
+  </div>
+
+</div>
+
+<script>
+let originalFile = null;
+let resultDataURL = null;
+
+const fileInput = document.getElementById('file-input');
+const dropZone = document.getElementById('drop-zone');
+const preview = document.getElementById('preview');
+const processBtn = document.getElementById('process-btn');
+const downloadBtn = document.getElementById('download-btn');
+const resultCanvas = document.getElementById('result-canvas');
+const canvasWrap = document.getElementById('canvas-wrap');
+const placeholderOut = document.getElementById('placeholder-out');
+const progressWrap = document.getElementById('progress-wrap');
+const progressFill = document.getElementById('progress-fill');
+const logBox = document.getElementById('log-box');
+const pctEl = document.getElementById('pct');
+const statusBar = document.getElementById('status-bar');
+const spinner = document.getElementById('spinner');
+const btnLabel = document.getElementById('btn-label');
+const btnIcon = document.getElementById('btn-icon');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+document.getElementById('solid-color').addEventListener('input', e => {
+  document.getElementById('color-val').textContent = e.target.value;
+});
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) return;
+  originalFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    dropZone.style.display = 'none';
+    processBtn.disabled = false;
+    document.getElementById('img-info').textContent = (file.size / 1024).toFixed(0) + ' KB';
+    resultDataURL = null;
+    downloadBtn.disabled = true;
+    canvasWrap.style.display = 'none';
+    placeholderOut.style.display = 'flex';
+    document.getElementById('result-badge').textContent = 'Awaiting processing';
+  };
+  reader.readAsDataURL(file);
+}
+
+function onBgTypeChange() {
+  const t = document.getElementById('bg-type').value;
+  document.getElementById('ai-prompt-row').classList.toggle('visible', t === 'ai');
+  document.getElementById('color-row').classList.toggle('visible', t === 'solid' || t === 'gradient');
+  document.getElementById('presets').style.display = t === 'ai' ? 'flex' : 'none';
+}
+
+function setPreset(btn, text) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('bg-prompt').value = text;
+}
+
+function setProgress(pct, msg) {
+  progressFill.style.width = pct + '%';
+  pctEl.textContent = Math.round(pct) + '%';
+  logBox.textContent = msg;
+  statusBar.textContent = msg;
+}
+
+function imageToBase64(file) {
+  return new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.readAsDataURL(file);
+  });
+}
+
+async function processImage() {
+  if (!originalFile) return;
+  processBtn.disabled = true;
+  downloadBtn.disabled = true;
+  spinner.style.display = 'block';
+  btnIcon.style.display = 'none';
+  btnLabel.textContent = 'Processing...';
+  progressWrap.style.display = 'block';
+  canvasWrap.style.display = 'none';
+  placeholderOut.style.display = 'none';
+  statusBar.style.display = 'block';
+  setProgress(5, 'Reading image data...');
+
+  try {
+    const b64 = await imageToBase64(originalFile);
+    const bgType = document.getElementById('bg-type').value;
+    setProgress(20, 'Sending to AI vision model...');
+
+    const prompt = buildPrompt(bgType);
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: originalFile.type, data: b64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    setProgress(60, 'AI analyzing image...');
+    const data = await resp.json();
+    const text = data.content.map(c => c.text || '').join('');
+    setProgress(80, 'Parsing segmentation data...');
+
+    let parsed;
     try {
-      const { removeBackground } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm');
-      window.removeBackgroundAI = removeBackground;
-      document.getElementById('modelStatus').textContent = '✅ AI Model Ready (First run downloads ~30MB)';
-      document.getElementById('modelStatus').style.color = 'var(--success)';
-      document.getElementById('removeBgBtn').disabled = false;
-    } catch (err) {
-      document.getElementById('modelStatus').textContent = '❌ Failed to load AI model. Disable adblockers & refresh.';
-      document.getElementById('modelStatus').style.color = 'var(--error)';
-      console.error('Model load error:', err);
+      const clean = text.replace(/```json\n?|```/g, '').trim();
+      parsed = JSON.parse(clean);
+    } catch { parsed = null; }
+
+    setProgress(90, 'Rendering result...');
+    await renderResult(b64, bgType, parsed);
+    setProgress(100, 'Done!');
+    document.getElementById('result-badge').textContent = 'Processed';
+    downloadBtn.disabled = false;
+
+  } catch (err) {
+    logBox.textContent = 'Error: ' + err.message;
+    setProgress(0, 'Error: ' + err.message);
+  } finally {
+    processBtn.disabled = false;
+    spinner.style.display = 'none';
+    btnIcon.style.display = 'block';
+    btnLabel.textContent = 'Remove Background';
+    setTimeout(() => { statusBar.style.display = 'none'; }, 2000);
+  }
+}
+
+function buildPrompt(bgType) {
+  const bgPrompt = document.getElementById('bg-prompt').value || 'studio backdrop';
+  return `Analyze this image carefully and identify the main subject (person, object, or focus of the image).
+
+Return ONLY a JSON object with no other text:
+{
+  "subject": "brief description of main subject",
+  "subjectPosition": {"x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0},
+  "hasPerson": true,
+  "suggestedBackground": "${bgType === 'ai' ? bgPrompt : bgType}",
+  "dominantColors": ["#hex1", "#hex2"],
+  "backgroundColors": ["#hex1", "#hex2"],
+  "lighting": "natural/studio/dramatic/soft",
+  "edgeComplexity": "simple/moderate/complex",
+  "confidenceScore": 0.0
+}
+
+subjectPosition values are normalized 0.0-1.0 from top-left of image.`;
+}
+
+async function renderResult(b64, bgType, analysis) {
+  const img = new Image();
+  await new Promise(res => { img.onload = res; img.src = 'data:' + originalFile.type + ';base64,' + b64; });
+  const W = img.naturalWidth, H = img.naturalHeight;
+  resultCanvas.width = W; resultCanvas.height = H;
+  const ctx = resultCanvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (bgType === 'transparent') {
+    applyBGRemoval(ctx, img, W, H, analysis, 'transparent');
+  } else if (bgType === 'solid') {
+    applyBGRemoval(ctx, img, W, H, analysis, 'solid', document.getElementById('solid-color').value);
+  } else if (bgType === 'gradient') {
+    applyBGRemoval(ctx, img, W, H, analysis, 'gradient', document.getElementById('solid-color').value);
+  } else if (bgType === 'ai') {
+    await applyAIBackground(ctx, img, W, H, analysis, document.getElementById('bg-prompt').value);
+  }
+
+  canvasWrap.style.display = 'block';
+  placeholderOut.style.display = 'none';
+  resultDataURL = resultCanvas.toDataURL('image/png');
+}
+
+function applyBGRemoval(ctx, img, W, H, analysis, mode, color) {
+  ctx.drawImage(img, 0, 0, W, H);
+  const imageData = ctx.getImageData(0, 0, W, H);
+  const data = imageData.data;
+
+  let sx = 0, sy = 0, sw = W, sh = H;
+  if (analysis && analysis.subjectPosition) {
+    sx = Math.floor(analysis.subjectPosition.x * W);
+    sy = Math.floor(analysis.subjectPosition.y * H);
+    sw = Math.floor(analysis.subjectPosition.w * W);
+    sh = Math.floor(analysis.subjectPosition.h * H);
+  }
+
+  const bgColors = (analysis && analysis.backgroundColors)
+    ? analysis.backgroundColors.map(hexToRgb).filter(Boolean)
+    : [];
+
+  if (mode !== 'transparent') {
+    ctx.clearRect(0, 0, W, H);
+    if (mode === 'solid') {
+      ctx.fillStyle = color || '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+    } else if (mode === 'gradient') {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, lightenHex(color || '#aaaaff', 60));
+      g.addColorStop(1, darkenHex(color || '#aaaaff', 30));
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
     }
-  </script>
+  }
 
-  <script>
-    const fileInput = document.getElementById('fileInput');
-    const uploadArea = document.getElementById('uploadArea');
-    const statusBar = document.getElementById('statusBar');
-    const progressBar = document.getElementById('progressBar');
-    const progressFill = document.getElementById('progressFill');
-    const originalImg = document.getElementById('originalImg');
-    const foregroundImg = document.getElementById('foregroundImg');
-    const backgroundImg = document.getElementById('backgroundImg');
-    const resultCanvas = document.getElementById('resultCanvas');
-    const ctx = resultCanvas.getContext('2d');
-    const removeBgBtn = document.getElementById('removeBgBtn');
-    const generateBgBtn = document.getElementById('generateBgBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const bgPrompt = document.getElementById('bgPrompt');
+  ctx.putImageData(imageData, 0, 0);
+  const mask = ctx.getImageData(0, 0, W, H);
+  const md = mask.data;
 
-    let originalFile = null;
-    let fgBlob = null, bgBlob = null;
-    let fgImg = new Image();
-    let bgImg = new Image();
-
-    function setStatus(msg, type) {
-      statusBar.textContent = msg;
-      statusBar.className = `visible ${type}`;
-    }
-
-    function setProgress(pct) {
-      progressBar.style.display = 'block';
-      progressFill.style.width = `${pct}%`;
-    }
-
-    // Upload Handling
-    uploadArea.addEventListener('click', () => fileInput.click());
-    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
-    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
-    uploadArea.addEventListener('drop', e => {
-      e.preventDefault();
-      uploadArea.classList.remove('dragover');
-      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-    });
-    fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
-
-    function handleFile(file) {
-      if (!file.type.startsWith('image/')) { setStatus('❌ Please upload a valid image.', 'error'); return; }
-      originalFile = file;
-      originalImg.src = URL.createObjectURL(file);
-      removeBgBtn.disabled = !window.removeBackgroundAI;
-      generateBgBtn.disabled = true;
-      downloadBtn.disabled = true;
-      foregroundImg.src = ''; backgroundImg.src = '';
-      fgBlob = null; bgBlob = null;
-      ctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
-      setStatus('✅ Image loaded. Click "Remove Background" to start.', 'success');
-    }
-
-    // Remove Background
-    removeBgBtn.addEventListener('click', async () => {
-      if (!originalFile || !window.removeBackgroundAI) return;
-      setStatus('⏳ Removing background... (Downloading AI model if first run)', 'loading');
-      removeBgBtn.disabled = true;
-      progressBar.style.display = 'block';
-      
-      try {
-        const blob = await window.removeBackgroundAI(originalFile, {
-          progress: (key, current, total) => {
-            if (total > 0) setProgress((current / total) * 100);
-          },
-          model: { publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/dist/' }
-        });
-        
-        fgBlob = blob;
-        const url = URL.createObjectURL(blob);
-        foregroundImg.src = url;
-        fgImg.onload = () => {
-          setStatus('✅ Background removed! Generate a new one below.', 'success');
-          progressBar.style.display = 'none';
-          generateBgBtn.disabled = false;
-          removeBgBtn.disabled = false;
-        };
-        fgImg.src = url;
-      } catch (err) {
-        setStatus('❌ Removal failed: ' + err.message, 'error');
-        progressBar.style.display = 'none';
-        removeBgBtn.disabled = false;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      const r = data[i], g = data[i+1], b = data[i+2];
+      if (isBackgroundPixel(x, y, r, g, b, W, H, sx, sy, sw, sh, bgColors)) {
+        if (mode === 'transparent') md[i+3] = 0;
       }
-    });
-
-    // Generate AI Background
-    generateBgBtn.addEventListener('click', async () => {
-      if (!fgBlob) return;
-      const prompt = encodeURIComponent(bgPrompt.value.trim() || 'modern studio background');
-      setStatus('⏳ Generating AI background... (Takes 3-10s)', 'loading');
-      generateBgBtn.disabled = true;
-      progressBar.style.display = 'block';
-      progressFill.style.width = '0%';
-      
-      try {
-        // Pollinations AI is free & requires no API key
-        const aiUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
-        
-        // Simulate progress while fetching
-        let fakeProgress = setInterval(() => {
-          let w = parseInt(progressFill.style.width) || 0;
-          if (w < 90) progressFill.style.width = `${w + 5}%`;
-        }, 200);
-
-        const res = await fetch(aiUrl);
-        clearInterval(fakeProgress);
-        if (!res.ok) throw new Error(`AI service error: ${res.status}`);
-        
-        bgBlob = await res.blob();
-        const url = URL.createObjectURL(bgBlob);
-        backgroundImg.src = url;
-        bgImg.onload = () => {
-          setStatus('✅ Background generated! Compositing result...', 'success');
-          progressFill.style.width = '100%';
-          setTimeout(() => progressBar.style.display = 'none', 500);
-          composite();
-          generateBgBtn.disabled = false;
-          downloadBtn.disabled = false;
-        };
-        bgImg.src = url;
-      } catch (err) {
-        setStatus('❌ Generation failed: ' + err.message, 'error');
-        progressBar.style.display = 'none';
-        generateBgBtn.disabled = false;
-      }
-    });
-
-    // Smart Compositing
-    function composite() {
-      const cw = Math.max(fgImg.width, bgImg.width);
-      const ch = Math.max(fgImg.height, bgImg.height);
-      resultCanvas.width = cw; resultCanvas.height = ch;
-
-      // Draw background (cover fit)
-      const bgAspect = bgImg.width / bgImg.height;
-      const canvasAspect = cw / ch;
-      let bw, bh, bx, by;
-      if (bgAspect > canvasAspect) { bh = ch; bw = ch * bgAspect; bx = (cw - bw) / 2; by = 0; }
-      else { bw = cw; bh = cw / bgAspect; bx = 0; by = (ch - bh) / 2; }
-      ctx.drawImage(bgImg, bx, by, bw, bh);
-
-      // Draw foreground (85% scale, centered)
-      const scale = Math.min(cw * 0.85 / fgImg.width, ch * 0.85 / fgImg.height);
-      const fw = fgImg.width * scale, fh = fgImg.height * scale;
-      const fx = (cw - fw) / 2, fy = (ch - fh) / 2;
-      ctx.drawImage(fgImg, fx, fy, fw, fh);
     }
+  }
 
-    // Download
-    downloadBtn.addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.download = `ai-bg-removed-${Date.now()}.png`;
-      link.href = resultCanvas.toDataURL('image/png');
-      link.click();
-    });
-  </script>
+  if (mode === 'transparent') {
+    ctx.putImageData(mask, 0, 0);
+  } else {
+    ctx.drawImage(img, 0, 0, W, H);
+  }
+}
+
+function isBackgroundPixel(x, y, r, g, b, W, H, sx, sy, sw, sh, bgColors) {
+  if (x >= sx && x <= sx+sw && y >= sy && y <= sy+sh) return false;
+  const cx = W/2, cy = H/2;
+  const distCenter = Math.sqrt((x-cx)**2 + (y-cy)**2) / Math.sqrt(cx**2+cy**2);
+  if (distCenter < 0.15) return false;
+  const brightness = (r+g+b)/3;
+  const isNearEdge = x < 20 || y < 20 || x > W-20 || y > H-20;
+  if (isNearEdge) {
+    if (bgColors.length > 0) {
+      for (const c of bgColors) {
+        if (colorDist(r,g,b,c.r,c.g,c.b) < 60) return true;
+      }
+    }
+    if (brightness > 220) return true;
+    if (r > 200 && g > 200 && b > 200) return true;
+  }
+  return false;
+}
+
+function colorDist(r1,g1,b1,r2,g2,b2) {
+  return Math.sqrt((r1-r2)**2+(g1-g2)**2+(b1-b2)**2);
+}
+
+async function applyAIBackground(ctx, img, W, H, analysis, prompt) {
+  const bgCanvas = document.createElement('canvas');
+  bgCanvas.width = W; bgCanvas.height = H;
+  drawGenerativeBackground(bgCanvas.getContext('2d'), W, H, prompt.toLowerCase(), analysis);
+  ctx.drawImage(bgCanvas, 0, 0, W, H);
+
+  if (analysis && analysis.subjectPosition) {
+    const p = analysis.subjectPosition;
+    const margin = 0.08;
+    const x = Math.max(0, (p.x - margin) * W);
+    const y = Math.max(0, (p.y - margin) * H);
+    const w = Math.min(W - x, (p.w + margin*2) * W);
+    const h = Math.min(H - y, (p.h + margin*2) * H);
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const oCtx = off.getContext('2d');
+    oCtx.drawImage(img, 0, 0, W, H);
+    const ed = oCtx.getImageData(0, 0, W, H);
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        if (px >= x && px <= x+w && py >= y && py <= y+h) continue;
+        ed.data[(py*W+px)*4+3] = 0;
+      }
+    }
+    oCtx.putImageData(ed, 0, 0);
+    ctx.drawImage(off, x, y, w, h, x, y, w, h);
+  } else {
+    ctx.drawImage(img, 0, 0, W, H);
+  }
+}
+
+function drawGenerativeBackground(ctx, W, H, keywords, analysis) {
+  const palette = getPalette(keywords);
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, palette[0]);
+  g.addColorStop(0.5, palette[1]);
+  g.addColorStop(1, palette[2]);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  for (let i = 0; i < 6; i++) {
+    const bx = Math.random()*W, by = Math.random()*H, br = 60+Math.random()*200;
+    const cg = ctx.createRadialGradient(bx,by,0,bx,by,br);
+    cg.addColorStop(0, palette[Math.floor(Math.random()*palette.length)]+'55');
+    cg.addColorStop(1, 'transparent');
+    ctx.fillStyle = cg;
+    ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fill();
+  }
+  if (keywords.includes('marble') || keywords.includes('texture')) {
+    for (let i = 0; i < 20; i++) {
+      ctx.strokeStyle = palette[1]+'33';
+      ctx.lineWidth = 0.5+Math.random()*2;
+      ctx.beginPath();
+      ctx.moveTo(Math.random()*W,0);
+      ctx.bezierCurveTo(Math.random()*W,Math.random()*H,Math.random()*W,Math.random()*H,Math.random()*W,H);
+      ctx.stroke();
+    }
+  }
+  if (keywords.includes('sunset')||keywords.includes('golden')) {
+    const sun = ctx.createRadialGradient(W*.5,H*.7,0,W*.5,H*.7,W*.4);
+    sun.addColorStop(0,'#FFD70099'); sun.addColorStop(1,'transparent');
+    ctx.fillStyle = sun; ctx.fillRect(0,0,W,H);
+  }
+  if (keywords.includes('neon')||keywords.includes('cyber')||keywords.includes('futuristic')) {
+    for (let i=0;i<8;i++) {
+      ctx.strokeStyle = ['#ff0080','#00ffff','#8800ff'][i%3]+'66';
+      ctx.lineWidth=1; ctx.beginPath();
+      const ly=Math.random()*H; ctx.moveTo(0,ly); ctx.lineTo(W,ly); ctx.stroke();
+    }
+  }
+}
+
+function getPalette(k) {
+  if (k.includes('sunset')||k.includes('golden')) return ['#1a0533','#8b1a4a','#f4741b'];
+  if (k.includes('beach')||k.includes('ocean')) return ['#0077b6','#00b4d8','#90e0ef'];
+  if (k.includes('forest')||k.includes('nature')) return ['#1b4332','#2d6a4f','#52b788'];
+  if (k.includes('cyber')||k.includes('neon')||k.includes('futuristic')) return ['#03001c','#1a0050','#7B2FBE'];
+  if (k.includes('marble')||k.includes('minimal')||k.includes('white')) return ['#f0ede8','#d9d6cf','#b8b4ac'];
+  if (k.includes('office')||k.includes('studio')) return ['#e8e0d5','#c5bdb4','#9a9090'];
+  return ['#1a1a2e','#16213e','#0f3460'];
+}
+
+function hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? {r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)} : null;
+}
+
+function lightenHex(hex, a) {
+  const c=hexToRgb(hex); if(!c) return hex;
+  return `rgb(${Math.min(255,c.r+a)},${Math.min(255,c.g+a)},${Math.min(255,c.b+a)})`;
+}
+
+function darkenHex(hex, a) {
+  const c=hexToRgb(hex); if(!c) return hex;
+  return `rgb(${Math.max(0,c.r-a)},${Math.max(0,c.g-a)},${Math.max(0,c.b-a)})`;
+}
+
+function downloadResult() {
+  if (!resultDataURL) return;
+  const a = document.createElement('a');
+  a.href = resultDataURL;
+  a.download = 'removed_bg_' + Date.now() + '.png';
+  a.click();
+}
+
+function resetAll() {
+  originalFile = null; resultDataURL = null;
+  preview.style.display = 'none';
+  dropZone.style.display = 'flex';
+  fileInput.value = '';
+  processBtn.disabled = true;
+  downloadBtn.disabled = true;
+  canvasWrap.style.display = 'none';
+  placeholderOut.style.display = 'flex';
+  progressWrap.style.display = 'none';
+  document.getElementById('img-info').textContent = 'No image';
+  document.getElementById('result-badge').textContent = 'Awaiting processing';
+  setProgress(0, 'Ready');
+}
+
+onBgTypeChange();
+</script>
 </body>
 </html>
