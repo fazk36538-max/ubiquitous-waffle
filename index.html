@@ -373,6 +373,79 @@
     align-items: center;
     justify-content: center;
   }
+
+  .api-key-bar {
+    background: #fff;
+    border: 0.5px solid #ddd;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .api-key-bar label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .api-key-bar input[type=password], .api-key-bar input[type=text] {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    border: 0.5px solid #ccc;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    background: #fafafa;
+    color: #1a1a1a;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .api-key-bar input:focus { border-color: #7F77DD; }
+
+  .api-key-bar .toggle-btn {
+    padding: 8px 12px;
+    border: 0.5px solid #ccc;
+    border-radius: 8px;
+    background: #fafafa;
+    color: #666;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .api-key-bar .toggle-btn:hover { background: #eee; }
+
+  .api-key-hint {
+    font-size: 11px;
+    color: #aaa;
+    width: 100%;
+    margin-top: 2px;
+  }
+
+  .api-key-hint a { color: #7F77DD; text-decoration: none; }
+  .api-key-hint a:hover { text-decoration: underline; }
+
+  .error-msg {
+    display: none;
+    background: #fff0f0;
+    border: 0.5px solid #f5c6c6;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 13px;
+    color: #c0392b;
+    margin-bottom: 1rem;
+  }
 </style>
 </head>
 <body>
@@ -383,6 +456,19 @@
     <h1>Background <span>Remover</span> Pro</h1>
     <p>Upload any photo — AI removes the background &amp; replaces it automatically</p>
   </div>
+
+  <!-- API Key -->
+  <div class="api-key-bar">
+    <label>Anthropic API Key</label>
+    <input type="password" id="api-key" placeholder="sk-ant-..." autocomplete="off">
+    <button class="toggle-btn" onclick="toggleKeyVisibility()">Show</button>
+    <div class="api-key-hint">
+      Your key is never stored or sent anywhere except directly to Anthropic.
+      Get one at <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>
+    </div>
+  </div>
+
+  <div class="error-msg" id="error-msg"></div>
 
   <div class="workspace">
     <!-- Original Panel -->
@@ -583,8 +669,37 @@ function imageToBase64(file) {
   });
 }
 
+function toggleKeyVisibility() {
+  const inp = document.getElementById('api-key');
+  const btn = event.target;
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function clearError() {
+  document.getElementById('error-msg').style.display = 'none';
+}
+
 async function processImage() {
   if (!originalFile) return;
+  clearError();
+
+  const apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) {
+    showError('Please enter your Anthropic API key above to use this tool.');
+    return;
+  }
+  if (!apiKey.startsWith('sk-ant-')) {
+    showError('Invalid API key format. Anthropic keys start with "sk-ant-".');
+    return;
+  }
+
   processBtn.disabled = true;
   downloadBtn.disabled = true;
   spinner.style.display = 'block';
@@ -604,7 +719,12 @@ async function processImage() {
     const prompt = buildPrompt(bgType);
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -617,6 +737,15 @@ async function processImage() {
         }]
       })
     });
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      const msg = errData?.error?.message || `API error ${resp.status}`;
+      if (resp.status === 401) throw new Error('Invalid API key. Please check and try again.');
+      if (resp.status === 429) throw new Error('Rate limit reached. Please wait a moment and try again.');
+      if (resp.status === 400) throw new Error('Bad request: ' + msg);
+      throw new Error(msg);
+    }
 
     setProgress(60, 'AI analyzing image...');
     const data = await resp.json();
@@ -636,8 +765,10 @@ async function processImage() {
     downloadBtn.disabled = false;
 
   } catch (err) {
+    showError(err.message);
     logBox.textContent = 'Error: ' + err.message;
-    setProgress(0, 'Error: ' + err.message);
+    setProgress(0, 'Failed');
+    placeholderOut.style.display = 'flex';
   } finally {
     processBtn.disabled = false;
     spinner.style.display = 'none';
