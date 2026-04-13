@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Background Remover & Generator</title>
   <style>
-    :root { --primary: #4f46e5; --success: #16a34a; --warning: #f59e0b; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; }
+    :root { --primary: #4f46e5; --success: #16a34a; --warning: #f59e0b; --error: #dc2626; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
     .container { max-width: 960px; margin: 0 auto; background: var(--card); padding: 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
@@ -18,17 +18,17 @@
     
     .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
     input[type="text"] { flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; min-width: 200px; }
-    button { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px; transition: opacity 0.2s; white-space: nowrap; }
+    button { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px; transition: all 0.2s; white-space: nowrap; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: white; }
     .btn-warning { background: var(--warning); color: #000; }
     .btn-success { background: var(--success); color: white; }
     
-    .status { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; display: none; font-size: 14px; }
-    .status.visible { display: block; }
-    .status.loading { background: #fef3c7; color: #92400e; }
-    .status.success { background: #dcfce7; color: #166534; }
-    .status.error { background: #fee2e2; color: #991b1b; }
+    #statusBar { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; display: none; font-size: 14px; }
+    #statusBar.visible { display: block; }
+    .loading { background: #fef3c7; color: #92400e; }
+    .success { background: #dcfce7; color: #166534; }
+    .error { background: #fee2e2; color: #991b1b; }
     
     .preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
     .preview-box { background: #f1f5f9; border-radius: 10px; padding: 10px; text-align: center; }
@@ -38,6 +38,10 @@
     .canvas-wrap { text-align: center; margin-top: 10px; }
     .canvas-wrap h3 { margin-bottom: 8px; font-size: 14px; color: var(--muted); }
     canvas { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: repeating-conic-gradient(#e2e8f0 0% 25%, transparent 0% 50%) 50% / 16px 16px; }
+    
+    #modelStatus { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+    .progress-bar { height: 4px; background: #e2e8f0; border-radius: 2px; margin-top: 8px; overflow: hidden; display: none; }
+    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s; }
     
     @media (max-width: 600px) {
       .controls { flex-direction: column; }
@@ -50,13 +54,15 @@
   <div class="container">
     <h1>🖼️ AI Background Remover & Generator</h1>
     <p class="subtitle">Upload → Remove BG → Generate AI Background → Download</p>
+    <div id="modelStatus">⏳ Initializing AI Model...</div>
     
     <div class="upload-area" id="uploadArea">
       <p>📤 Drag & drop an image here or click to upload</p>
       <input type="file" id="fileInput" accept="image/*" style="display:none">
     </div>
     
-    <div id="status" class="status"></div>
+    <div id="statusBar"></div>
+    <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
     
     <div class="controls">
       <input type="text" id="bgPrompt" placeholder="AI background prompt (e.g., 'cyberpunk city, neon lights, bokeh')" value="professional photo studio background, soft lighting">
@@ -77,12 +83,27 @@
     </div>
   </div>
 
-  <!-- Load AI Background Removal Library -->
-  <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/dist/index.min.js"></script>
+  <!-- Load AI Library via ES Module -->
+  <script type="module">
+    try {
+      const { removeBackground } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/+esm');
+      window.removeBackgroundAI = removeBackground;
+      document.getElementById('modelStatus').textContent = '✅ AI Model Ready (First run downloads ~30MB)';
+      document.getElementById('modelStatus').style.color = 'var(--success)';
+      document.getElementById('removeBgBtn').disabled = false;
+    } catch (err) {
+      document.getElementById('modelStatus').textContent = '❌ Failed to load AI model. Disable adblockers & refresh.';
+      document.getElementById('modelStatus').style.color = 'var(--error)';
+      console.error('Model load error:', err);
+    }
+  </script>
+
   <script>
     const fileInput = document.getElementById('fileInput');
     const uploadArea = document.getElementById('uploadArea');
-    const statusEl = document.getElementById('status');
+    const statusBar = document.getElementById('statusBar');
+    const progressBar = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
     const originalImg = document.getElementById('originalImg');
     const foregroundImg = document.getElementById('foregroundImg');
     const backgroundImg = document.getElementById('backgroundImg');
@@ -99,8 +120,13 @@
     let bgImg = new Image();
 
     function setStatus(msg, type) {
-      statusEl.textContent = msg;
-      statusEl.className = `status visible ${type}`;
+      statusBar.textContent = msg;
+      statusBar.className = `visible ${type}`;
+    }
+
+    function setProgress(pct) {
+      progressBar.style.display = 'block';
+      progressFill.style.width = `${pct}%`;
     }
 
     // Upload Handling
@@ -115,10 +141,10 @@
     fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
 
     function handleFile(file) {
-      if (!file.type.startsWith('image/')) { setStatus('❌ Please upload a valid image file.', 'error'); return; }
+      if (!file.type.startsWith('image/')) { setStatus('❌ Please upload a valid image.', 'error'); return; }
       originalFile = file;
       originalImg.src = URL.createObjectURL(file);
-      removeBgBtn.disabled = false;
+      removeBgBtn.disabled = !window.removeBackgroundAI;
       generateBgBtn.disabled = true;
       downloadBtn.disabled = true;
       foregroundImg.src = ''; backgroundImg.src = '';
@@ -129,23 +155,32 @@
 
     // Remove Background
     removeBgBtn.addEventListener('click', async () => {
-      if (!originalFile) return;
-      setStatus('⏳ Removing background... (First run downloads ~30MB AI model)', 'loading');
+      if (!originalFile || !window.removeBackgroundAI) return;
+      setStatus('⏳ Removing background... (Downloading AI model if first run)', 'loading');
       removeBgBtn.disabled = true;
+      progressBar.style.display = 'block';
+      
       try {
-        if (!window.imgly) throw new Error('AI model failed to load. Check internet connection.');
-        const blob = await imgly.removeBackground(originalFile);
+        const blob = await window.removeBackgroundAI(originalFile, {
+          progress: (key, current, total) => {
+            if (total > 0) setProgress((current / total) * 100);
+          },
+          model: { publicPath: 'https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/dist/' }
+        });
+        
         fgBlob = blob;
         const url = URL.createObjectURL(blob);
         foregroundImg.src = url;
         fgImg.onload = () => {
-          setStatus('✅ Background removed! Now generate a new one.', 'success');
+          setStatus('✅ Background removed! Generate a new one below.', 'success');
+          progressBar.style.display = 'none';
           generateBgBtn.disabled = false;
           removeBgBtn.disabled = false;
         };
         fgImg.src = url;
       } catch (err) {
-        setStatus('❌ Error: ' + err.message, 'error');
+        setStatus('❌ Removal failed: ' + err.message, 'error');
+        progressBar.style.display = 'none';
         removeBgBtn.disabled = false;
       }
     });
@@ -156,22 +191,38 @@
       const prompt = encodeURIComponent(bgPrompt.value.trim() || 'modern studio background');
       setStatus('⏳ Generating AI background... (Takes 3-10s)', 'loading');
       generateBgBtn.disabled = true;
+      progressBar.style.display = 'block';
+      progressFill.style.width = '0%';
+      
       try {
-        const aiUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 99999)}`;
+        // Pollinations AI is free & requires no API key
+        const aiUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+        
+        // Simulate progress while fetching
+        let fakeProgress = setInterval(() => {
+          let w = parseInt(progressFill.style.width) || 0;
+          if (w < 90) progressFill.style.width = `${w + 5}%`;
+        }, 200);
+
         const res = await fetch(aiUrl);
-        if (!res.ok) throw new Error('AI generation failed. Try a simpler prompt.');
+        clearInterval(fakeProgress);
+        if (!res.ok) throw new Error(`AI service error: ${res.status}`);
+        
         bgBlob = await res.blob();
         const url = URL.createObjectURL(bgBlob);
         backgroundImg.src = url;
         bgImg.onload = () => {
-          setStatus('✅ Background generated! Compositing...', 'success');
+          setStatus('✅ Background generated! Compositing result...', 'success');
+          progressFill.style.width = '100%';
+          setTimeout(() => progressBar.style.display = 'none', 500);
           composite();
           generateBgBtn.disabled = false;
           downloadBtn.disabled = false;
         };
         bgImg.src = url;
       } catch (err) {
-        setStatus('❌ Error: ' + err.message, 'error');
+        setStatus('❌ Generation failed: ' + err.message, 'error');
+        progressBar.style.display = 'none';
         generateBgBtn.disabled = false;
       }
     });
