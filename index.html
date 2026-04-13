@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Background Remover & Generator</title>
+  <style>
+    :root { --primary: #4f46e5; --success: #16a34a; --warning: #f59e0b; --bg: #f8fafc; --card: #ffffff; --text: #0f172a; --muted: #64748b; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+    .container { max-width: 960px; margin: 0 auto; background: var(--card); padding: 24px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    h1 { text-align: center; margin-bottom: 8px; font-size: 1.8rem; }
+    .subtitle { text-align: center; color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; }
+    
+    .upload-area { border: 2px dashed #cbd5e1; border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; transition: all 0.2s; background: #f8fafc; margin-bottom: 20px; }
+    .upload-area:hover, .upload-area.dragover { border-color: var(--primary); background: #eef2ff; }
+    .upload-area p { margin-bottom: 8px; color: var(--muted); }
+    
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+    input[type="text"] { flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; min-width: 200px; }
+    button { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: 14px; transition: opacity 0.2s; white-space: nowrap; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-warning { background: var(--warning); color: #000; }
+    .btn-success { background: var(--success); color: white; }
+    
+    .status { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; display: none; font-size: 14px; }
+    .status.visible { display: block; }
+    .status.loading { background: #fef3c7; color: #92400e; }
+    .status.success { background: #dcfce7; color: #166534; }
+    .status.error { background: #fee2e2; color: #991b1b; }
+    
+    .preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .preview-box { background: #f1f5f9; border-radius: 10px; padding: 10px; text-align: center; }
+    .preview-box h3 { font-size: 14px; margin-bottom: 8px; color: var(--muted); }
+    .preview-box img { max-width: 100%; height: auto; border-radius: 6px; display: block; margin: 0 auto; background: repeating-conic-gradient(#e2e8f0 0% 25%, transparent 0% 50%) 50% / 16px 16px; }
+    
+    .canvas-wrap { text-align: center; margin-top: 10px; }
+    .canvas-wrap h3 { margin-bottom: 8px; font-size: 14px; color: var(--muted); }
+    canvas { max-width: 100%; height: auto; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); background: repeating-conic-gradient(#e2e8f0 0% 25%, transparent 0% 50%) 50% / 16px 16px; }
+    
+    @media (max-width: 600px) {
+      .controls { flex-direction: column; }
+      input[type="text"] { width: 100%; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🖼️ AI Background Remover & Generator</h1>
+    <p class="subtitle">Upload → Remove BG → Generate AI Background → Download</p>
+    
+    <div class="upload-area" id="uploadArea">
+      <p>📤 Drag & drop an image here or click to upload</p>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+    </div>
+    
+    <div id="status" class="status"></div>
+    
+    <div class="controls">
+      <input type="text" id="bgPrompt" placeholder="AI background prompt (e.g., 'cyberpunk city, neon lights, bokeh')" value="professional photo studio background, soft lighting">
+      <button id="removeBgBtn" class="btn-primary" disabled>🔍 Remove Background</button>
+      <button id="generateBgBtn" class="btn-warning" disabled>✨ Generate AI Background</button>
+      <button id="downloadBtn" class="btn-success" disabled>⬇️ Download PNG</button>
+    </div>
+    
+    <div class="preview-grid">
+      <div class="preview-box"><h3>Original</h3><img id="originalImg" alt="Original"></div>
+      <div class="preview-box"><h3>Foreground</h3><img id="foregroundImg" alt="Foreground"></div>
+      <div class="preview-box"><h3>AI Background</h3><img id="backgroundImg" alt="Background"></div>
+    </div>
+    
+    <div class="canvas-wrap">
+      <h3>Final Composite</h3>
+      <canvas id="resultCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Load AI Background Removal Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.5/dist/index.min.js"></script>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const uploadArea = document.getElementById('uploadArea');
+    const statusEl = document.getElementById('status');
+    const originalImg = document.getElementById('originalImg');
+    const foregroundImg = document.getElementById('foregroundImg');
+    const backgroundImg = document.getElementById('backgroundImg');
+    const resultCanvas = document.getElementById('resultCanvas');
+    const ctx = resultCanvas.getContext('2d');
+    const removeBgBtn = document.getElementById('removeBgBtn');
+    const generateBgBtn = document.getElementById('generateBgBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const bgPrompt = document.getElementById('bgPrompt');
+
+    let originalFile = null;
+    let fgBlob = null, bgBlob = null;
+    let fgImg = new Image();
+    let bgImg = new Image();
+
+    function setStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = `status visible ${type}`;
+    }
+
+    // Upload Handling
+    uploadArea.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+    uploadArea.addEventListener('drop', e => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+    function handleFile(file) {
+      if (!file.type.startsWith('image/')) { setStatus('❌ Please upload a valid image file.', 'error'); return; }
+      originalFile = file;
+      originalImg.src = URL.createObjectURL(file);
+      removeBgBtn.disabled = false;
+      generateBgBtn.disabled = true;
+      downloadBtn.disabled = true;
+      foregroundImg.src = ''; backgroundImg.src = '';
+      fgBlob = null; bgBlob = null;
+      ctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
+      setStatus('✅ Image loaded. Click "Remove Background" to start.', 'success');
+    }
+
+    // Remove Background
+    removeBgBtn.addEventListener('click', async () => {
+      if (!originalFile) return;
+      setStatus('⏳ Removing background... (First run downloads ~30MB AI model)', 'loading');
+      removeBgBtn.disabled = true;
+      try {
+        if (!window.imgly) throw new Error('AI model failed to load. Check internet connection.');
+        const blob = await imgly.removeBackground(originalFile);
+        fgBlob = blob;
+        const url = URL.createObjectURL(blob);
+        foregroundImg.src = url;
+        fgImg.onload = () => {
+          setStatus('✅ Background removed! Now generate a new one.', 'success');
+          generateBgBtn.disabled = false;
+          removeBgBtn.disabled = false;
+        };
+        fgImg.src = url;
+      } catch (err) {
+        setStatus('❌ Error: ' + err.message, 'error');
+        removeBgBtn.disabled = false;
+      }
+    });
+
+    // Generate AI Background
+    generateBgBtn.addEventListener('click', async () => {
+      if (!fgBlob) return;
+      const prompt = encodeURIComponent(bgPrompt.value.trim() || 'modern studio background');
+      setStatus('⏳ Generating AI background... (Takes 3-10s)', 'loading');
+      generateBgBtn.disabled = true;
+      try {
+        const aiUrl = `https://image.pollinations.ai/prompt/${prompt}?width=1024&height=1024&nologo=true&seed=${Math.floor(Math.random() * 99999)}`;
+        const res = await fetch(aiUrl);
+        if (!res.ok) throw new Error('AI generation failed. Try a simpler prompt.');
+        bgBlob = await res.blob();
+        const url = URL.createObjectURL(bgBlob);
+        backgroundImg.src = url;
+        bgImg.onload = () => {
+          setStatus('✅ Background generated! Compositing...', 'success');
+          composite();
+          generateBgBtn.disabled = false;
+          downloadBtn.disabled = false;
+        };
+        bgImg.src = url;
+      } catch (err) {
+        setStatus('❌ Error: ' + err.message, 'error');
+        generateBgBtn.disabled = false;
+      }
+    });
+
+    // Smart Compositing
+    function composite() {
+      const cw = Math.max(fgImg.width, bgImg.width);
+      const ch = Math.max(fgImg.height, bgImg.height);
+      resultCanvas.width = cw; resultCanvas.height = ch;
+
+      // Draw background (cover fit)
+      const bgAspect = bgImg.width / bgImg.height;
+      const canvasAspect = cw / ch;
+      let bw, bh, bx, by;
+      if (bgAspect > canvasAspect) { bh = ch; bw = ch * bgAspect; bx = (cw - bw) / 2; by = 0; }
+      else { bw = cw; bh = cw / bgAspect; bx = 0; by = (ch - bh) / 2; }
+      ctx.drawImage(bgImg, bx, by, bw, bh);
+
+      // Draw foreground (85% scale, centered)
+      const scale = Math.min(cw * 0.85 / fgImg.width, ch * 0.85 / fgImg.height);
+      const fw = fgImg.width * scale, fh = fgImg.height * scale;
+      const fx = (cw - fw) / 2, fy = (ch - fh) / 2;
+      ctx.drawImage(fgImg, fx, fy, fw, fh);
+    }
+
+    // Download
+    downloadBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = `ai-bg-removed-${Date.now()}.png`;
+      link.href = resultCanvas.toDataURL('image/png');
+      link.click();
+    });
+  </script>
+</body>
+</html>
